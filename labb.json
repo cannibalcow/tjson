@@ -1,0 +1,14 @@
+{
+  "status": {
+    "state": "running",
+    "done": 1234,
+    "left": 3213,
+    "per_second": 2.1
+  },
+  "load": [
+    1,
+    3,
+    4,
+    5
+  ]
+}
