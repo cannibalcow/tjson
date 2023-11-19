@@ -6,12 +6,6 @@ json source; stdin, file or http request
 
 Tables; one or more column|rows of tables.
 
-    ---------------------
-    | Table 1 | Table 2 |
-    ---------------------
-
-    ---------------------
+    -Title---------------
     |      Table 1      |
-    ---------------------
-    |      Table 2      |
     ---------------------
