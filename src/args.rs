@@ -6,5 +6,8 @@ pub mod args {
     pub struct TJsonArgs {
         #[arg(short, long)]
         pub pointers: Vec<String>,
+
+        #[arg(short, long)]
+        pub source: String,
     }
 }
