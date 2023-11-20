@@ -1,21 +1,22 @@
-pub mod args;
-pub mod json;
-pub mod tui;
-pub mod ui;
-
-use color_eyre::Result;
-use json::json::{get_cell, EntityResult};
-use serde_json::Value;
-use std::io::{stdin, Read};
+mod args;
+mod httpclient;
+mod json;
+mod tui;
+mod ui;
 
 use clap::Parser;
+use color_eyre::Result;
 
-use crate::{args::args::TJsonArgs, json::json::JsonEntity, ui::ui::App};
+use crate::{args::args::TJsonArgs, ui::ui::App};
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = TJsonArgs::parse();
-
+    let mut app = App::new(args);
+    app.run().await?;
+    Ok(())
+}
+/*
     let mut std = stdin().lock();
     let mut json_str = String::new();
     std.read_to_string(&mut json_str)?;
@@ -35,9 +36,4 @@ async fn main() -> Result<()> {
         })
         .collect();
 
-    let mut app = App::new(result);
-
-    app.run().await?;
-
-    Ok(())
-}
+*/

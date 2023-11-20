@@ -1,22 +1,20 @@
 pub mod ui {
     use eyre::eyre;
-    use std::{io::stdout, rc::Rc, time::Instant};
+    use std::time::{Duration, Instant};
 
     use color_eyre::Result;
-    use crossterm::{
-        event::{self, KeyCode, KeyEvent, KeyEventKind},
-        execute,
-        terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-    };
+    use crossterm::event::{KeyCode, KeyEvent};
     use ratatui::{
-        prelude::{Constraint, CrosstermBackend, Direction, Layout, Rect},
+        prelude::{Constraint, Direction, Layout},
         style::{Color, Style},
-        widgets::{Block, Borders, Cell, Paragraph, Row, Table, TableState},
-        Frame, Terminal,
+        widgets::{Block, Borders, Cell, Row, Table, TableState},
+        Frame,
     };
 
     use crate::{
-        json::json::JsonEntity,
+        args::args::TJsonArgs,
+        httpclient,
+        json::json::{get_cell, EntityResult, JsonEntity},
         tui::{Event, Tui},
     };
 
@@ -33,18 +31,20 @@ pub mod ui {
         should_quit: bool,
         update_source_c: usize,
         last_updated: Instant,
-        pub columns: Vec<JsonEntity>,
-        pub state: AppState,
+        columns: Vec<JsonEntity>,
+        state: AppState,
+        args: TJsonArgs,
     }
 
     impl App {
-        pub fn new(columns: Vec<JsonEntity>) -> Self {
+        pub fn new(args: TJsonArgs) -> Self {
             Self {
+                args,
                 table_state: TableState::default(),
                 should_quit: false,
-                columns,
+                columns: vec![],
                 state: AppState::default(),
-                last_updated: Instant::now(),
+                last_updated: Instant::now() - Duration::new(3, 0),
                 update_source_c: 0,
             }
         }
@@ -57,7 +57,7 @@ pub mod ui {
                 tui.draw(|f| self.ui(f).expect("Error drawing"))?;
                 let e = tui.next().await.ok_or(eyre!("Unable to get event"))?; // blocks until next event
                 let message = self.handle_event(e)?;
-                self.update(message)?;
+                self.update(message).await?;
             }
             tui.exit()?;
 
@@ -82,11 +82,28 @@ pub mod ui {
             Ok(msg)
         }
 
-        fn update(&mut self, message: Message) -> Result<()> {
+        async fn update(&mut self, message: Message) -> Result<()> {
             match message {
                 Message::Quit => self.stop(),
                 Message::Tick => self.tick(),
                 Message::UpdateSource => {
+                    let json = httpclient::fetch(&self.args.source).await?;
+
+                    let result: Vec<JsonEntity> = self
+                        .args
+                        .pointers
+                        .iter()
+                        .map(|pointer| get_cell(&json, &pointer))
+                        .filter_map(|f| f)
+                        .flat_map(|v| -> Vec<JsonEntity> {
+                            match v {
+                                EntityResult::Entities(cs) => cs,
+                                EntityResult::Entity(c) => vec![c],
+                            }
+                        })
+                        .collect();
+
+                    self.columns = result;
                     self.last_updated = Instant::now();
                     self.update_source_c += 1;
                 }
@@ -113,10 +130,41 @@ pub mod ui {
                 //                    .constraints(vec![Constraint::Percentage(30), Constraint::Percentage(70)])
                 .split(f.size());
 
-            f.render_widget(
-                Paragraph::new(format!("Update source: {}", self.update_source_c)),
-                layout[0],
-            );
+            let header_cells: Vec<Cell> = self
+                .columns
+                .iter()
+                .map(|json_entity| json_entity.title.to_uppercase())
+                .map(|h| Cell::from(h).style(Style::default().fg(Color::Green)))
+                .collect();
+
+            let header = Row::new(header_cells);
+
+            let row_cells: Vec<Cell> = self
+                .columns
+                .iter()
+                .map(|entity| Cell::from(entity.value.to_string()))
+                .collect();
+
+            let rows = vec![Row::new(row_cells)];
+
+            let widths: Vec<Constraint> = self
+                .columns
+                .iter()
+                .map(|_| Constraint::Percentage(15))
+                .collect();
+
+            let t = Table::new(rows)
+                .header(header)
+                .block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .title(format!("Status: {}", &self.args.source)),
+                )
+                .highlight_symbol("# ")
+                .widths(&widths);
+
+            f.render_stateful_widget(t, layout[0], &mut self.table_state);
+
             Ok(())
         }
     }
@@ -133,115 +181,5 @@ pub mod ui {
         UpdateSource,
         Quit,
         Tick,
-    }
-
-    fn ui(app: &mut App, layout: Rc<[Rect]>, f: &mut Frame<'_>) {
-        let header_cells: Vec<Cell> = app
-            .columns
-            .iter()
-            .map(|json_entity| json_entity.title.to_uppercase())
-            .map(|h| Cell::from(h).style(Style::default().fg(Color::Green)))
-            .collect();
-
-        let header = Row::new(header_cells);
-
-        let row_cells: Vec<Cell> = app
-            .columns
-            .iter()
-            .map(|entity| Cell::from(entity.value.to_string()))
-            .collect();
-
-        let rows = vec![Row::new(row_cells)];
-
-        let widths: Vec<Constraint> = app
-            .columns
-            .iter()
-            .map(|_| Constraint::Percentage(10))
-            .collect();
-
-        let t = Table::new(rows)
-            .header(header)
-            .block(Block::default().borders(Borders::ALL).title("Status table"))
-            .highlight_symbol("# ")
-            .widths(&widths);
-        /*
-            .widths(&[
-                Constraint::Percentage(10),
-                Constraint::Max(10),
-                Constraint::Min(10),
-            ])
-        */
-
-        f.render_stateful_widget(t, layout[0], &mut app.table_state)
-
-        /*
-        for column in &app.colums {
-            f.render_widget(
-                Paragraph::new(
-                    format!("title: {}, val: {}", column.title, column.value.to_string())
-                        .light_red()
-                        .on_black(),
-                )
-                .block(
-                    Block::default()
-                        .title("Counter App")
-                        .title_alignment(Alignment::Center)
-                        .borders(Borders::ALL)
-                        .border_type(BorderType::Rounded),
-                ),
-                layout[0],
-            );
-        }
-        */
-    }
-
-    fn update(app: &mut App) -> Result<()> {
-        if event::poll(std::time::Duration::from_millis(250))? {
-            if let event::Event::Key(key) = event::read()? {
-                if key.kind == KeyEventKind::Press {
-                    match key.code {
-                        KeyCode::Char('q') => app.should_quit = true,
-                        _ => {}
-                    }
-                }
-            }
-        }
-        Ok(())
-    }
-
-    pub fn run(mut app: App) -> Result<()> {
-        println!("hej");
-        startup()?;
-        let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
-
-        loop {
-            terminal.draw(|frame| {
-                let laytout = Layout::default()
-                    .direction(Direction::Vertical)
-                    .constraints(vec![Constraint::Percentage(100)])
-                    //                    .constraints(vec![Constraint::Percentage(30), Constraint::Percentage(70)])
-                    .split(frame.size());
-
-                ui(&mut app, laytout, frame);
-            })?;
-            update(&mut app)?;
-
-            if app.should_quit {
-                break;
-            }
-        }
-        shutdown()
-    }
-
-    fn startup() -> Result<()> {
-        enable_raw_mode()?;
-        execute!(std::io::stderr(), EnterAlternateScreen)?;
-        Ok(())
-    }
-
-    fn shutdown() -> Result<()> {
-        execute!(std::io::stderr(), LeaveAlternateScreen)?;
-        disable_raw_mode()?;
-        Ok(())
     }
 }
