@@ -3,7 +3,7 @@ pub mod ui {
     use std::time::{Duration, Instant};
 
     use color_eyre::Result;
-    use crossterm::event::{KeyCode, KeyEvent};
+    use crossterm::event::KeyCode;
     use ratatui::{
         prelude::{Constraint, Direction, Layout},
         style::{Color, Style},
@@ -20,7 +20,6 @@ pub mod ui {
 
     #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
     pub enum AppState {
-        Stopped,
         #[default]
         Running,
         Quitting,
@@ -28,7 +27,6 @@ pub mod ui {
 
     pub struct App {
         table_state: TableState,
-        should_quit: bool,
         update_source_c: usize,
         last_updated: Instant,
         columns: Vec<JsonEntity>,
@@ -41,7 +39,6 @@ pub mod ui {
             Self {
                 args,
                 table_state: TableState::default(),
-                should_quit: false,
                 columns: vec![],
                 state: AppState::default(),
                 last_updated: Instant::now() - Duration::new(3, 0),
@@ -93,8 +90,7 @@ pub mod ui {
                         .args
                         .pointers
                         .iter()
-                        .map(|pointer| get_cell(&json, &pointer))
-                        .filter_map(|f| f)
+                        .filter_map(|pointer| get_cell(&json, pointer))
                         .flat_map(|v| -> Vec<JsonEntity> {
                             match v {
                                 EntityResult::Entities(cs) => cs,
@@ -117,10 +113,6 @@ pub mod ui {
 
         fn stop(&mut self) {
             self.state = AppState::Quitting
-        }
-
-        fn start(&mut self) {
-            self.state = AppState::Running;
         }
 
         fn ui(&mut self, f: &mut Frame) -> Result<()> {
@@ -167,13 +159,6 @@ pub mod ui {
 
             Ok(())
         }
-    }
-
-    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-    enum AppEvent {
-        Error,
-        Tick,
-        Key(KeyEvent),
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]

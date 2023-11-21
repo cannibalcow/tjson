@@ -1,5 +1,6 @@
 pub mod json {
-    use serde_json::{Number, Value};
+    use serde_json::Number;
+    use serde_json::Value;
 
     #[derive(Debug, PartialEq, PartialOrd)]
     pub enum JsonValue {
@@ -24,10 +25,6 @@ pub mod json {
 
     pub type Title = String;
 
-    pub struct Row {
-        cols: Vec<JsonEntity>,
-    }
-
     #[derive(Debug, PartialEq, PartialOrd)]
     pub struct JsonEntity {
         pub title: Title,
@@ -42,6 +39,7 @@ pub mod json {
 
     pub fn get_cell(json_object: &Value, pointer: &str) -> Option<EntityResult> {
         let title = get_field_name(pointer);
+
         if title.is_none() {
             return None;
         }
@@ -77,14 +75,14 @@ pub mod json {
 
     fn to_value(number: &Number) -> JsonValue {
         if number.is_i64() || number.is_u64() {
-            return JsonValue::PosInt(number.as_i64().expect("Invalid number"));
+            JsonValue::PosInt(number.as_i64().expect("Invalid number"))
         } else {
-            return JsonValue::Float(number.as_f64().expect("Invalid number"));
+            JsonValue::Float(number.as_f64().expect("Invalid number"))
         }
     }
 
     fn get_field_name(point: &str) -> Option<&str> {
-        point.split("/").last()
+        point.split('/').last()
     }
 }
 
