@@ -67,7 +67,33 @@ pub mod json {
                 })),
                 // Todo: return list of cells with only primitives
                 Value::Array(_) => None,
-                Value::Object(_) => None,
+                Value::Object(v) => {
+                    let mut result = Vec::new();
+                    for (key, value) in v.iter() {
+                        let n: Option<JsonEntity> = match value {
+                            Value::Null => None,
+                            Value::Bool(t) => Some(JsonEntity {
+                                title: key.to_owned(),
+                                value: JsonValue::Boolean(t.clone()),
+                            }),
+                            Value::Number(n) => Some(JsonEntity {
+                                title: key.to_owned(),
+                                value: to_value(n),
+                            }),
+                            Value::String(s) => Some(JsonEntity {
+                                title: key.to_owned(),
+                                value: JsonValue::Text(s.clone()),
+                            }),
+                            Value::Array(_) => None,
+                            Value::Object(_) => None,
+                        };
+                        match n {
+                            Some(v) => result.push(v),
+                            None => {}
+                        }
+                    }
+                    Some(EntityResult::Entities(result))
+                }
             },
             None => None,
         }

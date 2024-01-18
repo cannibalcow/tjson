@@ -5,6 +5,14 @@
     "left": 3213,
     "per_second": 2.1
   },
+  "info": {
+    "sub": {
+      "state": "running",
+      "done": 1234,
+      "left": 3213,
+      "per_second": 2.1
+    }
+  },
   "load": [
     1,
     3,
