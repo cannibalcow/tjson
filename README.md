@@ -36,6 +36,11 @@ Point out parts of the json top poll and show.
         -p /status/state \
         -p /status/is_clean
 
+    or 
+    
+    ./tjson --source http://localhost:8080/data.json -p /status
+    
+
 ![image](https://github.com/cannibalcow/tjson/assets/6787042/74cc78df-796f-4fb4-8702-70222bf4eb4c)
 
 
